@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Vendor {
+  id              String             @id @default(cuid())
+  clerkUserId     String             @unique
+  email           String?            @unique
+  slug            String             @unique
+  businessName    String
+  category        ServiceCategory    @default(OTHER)
+  bio             String?
+  servicesOffered String?
+  pricingNotes    String?
+  serviceArea     String?
+  phone           String?
+  whatsappNumber  String?
+  availability    AvailabilityStatus @default(AVAILABLE)
+  publicProfile   Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  avatarUrl       String?
+  coverImageUrl   String?
+  instagramUrl    String?
+  tiktokUrl       String?
+  youtubeUrl      String?
+  billingEvents   BillingEvent[]
+  bookings        Booking[]
+  clients         Client[]
+  inquiries       Inquiry[]
+  portfolio       PortfolioItem[]
+  subscription    Subscription?
+
+  @@index([category])
+}
+
+model Client {
+  id             String    @id @default(cuid())
+  vendorId       String
+  name           String
+  phone          String?
+  whatsappNumber String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  bookings       Booking[]
+  vendor         Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  vendorId      String
+  clientId      String
+  eventName     String
+  eventDate     DateTime
+  eventTime     String?
+  venue         String?
+  city          String?
+  status        BookingStatus @default(PENDING)
+  totalFee      Decimal       @default(0) @db.Decimal(12, 2)
+  depositAmount Decimal       @default(0) @db.Decimal(12, 2)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  client        Client        @relation(fields: [clientId], references: [id])
+  vendor        Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  payments      Payment[]
+  reminders     Reminder[]
+
+  @@index([clientId])
+  @@index([eventDate])
+  @@index([vendorId])
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  bookingId String
+  amount    Decimal       @db.Decimal(12, 2)
+  type      PaymentType   @default(OTHER)
+  method    PaymentMethod @default(TRANSFER)
+  paidAt    DateTime      @default(now())
+  notes     String?
+  createdAt DateTime      @default(now())
+  booking   Booking       @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model Reminder {
+  id           String          @id @default(cuid())
+  bookingId    String
+  message      String
+  channel      ReminderChannel @default(WHATSAPP)
+  scheduledFor DateTime
+  sent         Boolean         @default(false)
+  sentAt       DateTime?
+  createdAt    DateTime        @default(now())
+  booking      Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([scheduledFor])
+}
+
+model PortfolioItem {
+  id        String            @id @default(cuid())
+  vendorId  String
+  imageUrl  String
+  caption   String?
+  sortOrder Int               @default(0)
+  createdAt DateTime          @default(now())
+  type      PortfolioItemType @default(IMAGE)
+  vendor    Vendor            @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+}
+
+model Inquiry {
+  id                  String        @id @default(cuid())
+  vendorId            String
+  name                String
+  phone               String
+  eventDate           DateTime?
+  message             String?
+  status              InquiryStatus @default(NEW)
+  createdAt           DateTime      @default(now())
+  consumerClerkUserId String?
+  vendor              Vendor        @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId])
+  @@index([status])
+}
+
+model UserAccount {
+  id          String   @id @default(cuid())
+  clerkUserId String   @unique
+  role        UserRole
+  createdAt   DateTime @default(now())
+}
+
+model BillingEvent {
+  id            String   @id @default(cuid())
+  vendorId      String?
+  stripeEventId String   @unique
+  type          String
+  payload       Json
+  createdAt     DateTime @default(now())
+  vendor        Vendor?  @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@index([vendorId])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  vendorId             String             @unique
+  stripeCustomerId     String?            @unique
+  stripeSubscriptionId String?            @unique
+  stripePriceId        String?
+  plan                 PlanTier           @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  seats                Int                @default(1)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  vendor               Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+enum ServiceCategory {
+  DJ
+  EVENT_PLANNER
+  CATERER
+  DECORATOR
+  MC
+  VENUE
+  OTHER
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  LIMITED
+  UNAVAILABLE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentType {
+  DEPOSIT
+  BALANCE
+  OTHER
+}
+
+enum PaymentMethod {
+  TRANSFER
+  CASH
+  POS
+  OTHER
+}
+
+enum ReminderChannel {
+  WHATSAPP
+  SMS
+  CALL
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  CLOSED
+}
+
+enum UserRole {
+  CONSUMER
+  VENDOR
+}
+
+enum PortfolioItemType {
+  IMAGE
+  VIDEO
+  LINK
+}
+
+enum PlanTier {
+  FREE
+  PRO
+  TEAM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  UNPAID
+}
